@@ -1,0 +1,56 @@
+{
+  "name": "app-picking-magazzino",
+  "version": "1.0.0",
+  "description": "App per picking prodotti in magazzino",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start-safe": "electron . --disable-gpu --disable-software-rasterizer",
+    "build": "electron-builder",
+    "build-portable": "electron-builder --dir",
+    "dev": "electron . --enable-logging"
+  },
+  "keywords": [
+    "picking",
+    "magazzino",
+    "ean",
+    "scanner"
+  ],
+  "author": "FrancescoKF",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "chokidar": "^3.5.3",
+    "express": "^4.18.2"
+  },
+  "build": {
+    "appId": "com.azienda.pickingapp",
+    "productName": "App Picking Magazzino",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/electron",
+      "!node_modules/electron-builder"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/xlsx",
+        "to": "node_modules/xlsx"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
