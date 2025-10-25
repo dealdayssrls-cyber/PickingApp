@@ -1,5 +1,5 @@
-// App.tsx
-import React from 'react';
+// App.tsx - CORREGGI così:
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './src/screens/LoginScreen';
@@ -9,15 +9,23 @@ import PickingScreen from './src/screens/PickingScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import InventoryScreen from './src/screens/InventoryScreen';
 
-// Aggiungi in App.tsx (dopo gli import)
 import { syncManager } from './src/services/SyncManager';
-
-// Inizializza sync automatica quando l'app si avvia
-syncManager.startAutoSync(5); // Sync ogni 5 minuti
+import { serverConfig } from './src/services/ServerConfig';
 
 const Stack = createStackNavigator();
 
 export default function App() {
+  // INIZIALIZZA UNA VOLTA SOLA
+  useEffect(() => {
+    const initializeApp = async () => {
+      await serverConfig.initialize();
+      console.log('✅ App inizializzata - ServerConfig pronto');
+      syncManager.startAutoSync(5);
+    };
+    
+    initializeApp();
+  }, []);
+
   return (
     <NavigationContainer>
       <Stack.Navigator 
