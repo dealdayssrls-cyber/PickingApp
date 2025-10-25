@@ -29,12 +29,16 @@ export default function SettingsScreen({ navigation, route }: SettingsScreenProp
   const [serverStatus, setServerStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [inventoryCount, setInventoryCount] = useState(0);
   const [autoSync, setAutoSync] = useState(true);
+  
+  // ✅ DICHIARAZIONE CORRETTA - TUTTE LE PROPRIETÀ CON VIRGOLE
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isSyncing: false,
     lastSync: null,
     pendingOperations: 0,
-    lastError: null
+    lastError: null,
+    syncMode: 'online'
   });
+  
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
 
@@ -93,6 +97,14 @@ export default function SettingsScreen({ navigation, route }: SettingsScreenProp
       setSyncStatus(status);
     } catch (error) {
       console.error('❌ Errore caricamento stato sync:', error);
+      // Se c'è errore, imposta uno stato di default valido
+      setSyncStatus({
+        isSyncing: false,
+        lastSync: null,
+        pendingOperations: 0,
+        lastError: null,
+        syncMode: 'online' // AGGIUNGI QUESTO
+      });
     }
   };
 
@@ -147,6 +159,35 @@ export default function SettingsScreen({ navigation, route }: SettingsScreenProp
       setIsTestingConnection(false);
     }
   };
+
+  const testInventoryConnection = async () => {
+  try {
+    setIsTestingConnection(true);
+    
+    const response = await axios.get(`http://${ipAddress}:3001/api/debug/inventory-test`, {
+      timeout: 10000
+    });
+    
+    if (response.data.success) {
+      Alert.alert(
+        '✅ Test Inventario Riuscito', 
+        `Inventario accessibile: ${response.data.count} prodotti\n\nPercorso: ${response.data.path}`
+      );
+    } else {
+      Alert.alert(
+        '❌ Test Inventario Fallito', 
+        `Errore: ${response.data.error}\n\nPercorso: ${response.data.path}`
+      );
+    }
+  } catch (error: any) {
+    Alert.alert(
+      '❌ Test Inventario Fallito', 
+      `Impossibile accedere all'inventario: ${error.message}`
+    );
+  } finally {
+    setIsTestingConnection(false);
+  }
+};
 
   // Gestione sync automatica
   const handleAutoSyncToggle = async (value: boolean) => {
@@ -555,6 +596,7 @@ export default function SettingsScreen({ navigation, route }: SettingsScreenProp
     </ScrollView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {

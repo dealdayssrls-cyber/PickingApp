@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import axios from 'axios';
+// AGGIUNGI QUESTO IMPORT
+import { serverConfig } from '../services/ServerConfig';
 
 interface InventoryScreenProps {
   navigation: any;
@@ -14,13 +16,20 @@ export default function InventoryScreen({ navigation, route }: InventoryScreenPr
   const [inventory, setInventory] = useState<any[]>([]);
   const [filteredInventory, setFilteredInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [ipAddress, setIpAddress] = useState('192.168.1.67');
+  // RIMUOVI QUESTA RIGA: const [ipAddress, setIpAddress] = useState('192.168.1.67');
 
   const loadInventory = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://${ipAddress}:3001/api/sync/inventory`, {
-        timeout: 10000
+      
+      // USA serverConfig invece di IP hardcoded
+      const currentIP = serverConfig.getIPAddress();
+      const baseURL = `http://${currentIP}:3001`;
+      
+      console.log(`📦 Caricamento inventario da: ${baseURL}`);
+      
+      const response = await axios.get(`${baseURL}/api/sync/inventory`, {
+        timeout: 15000
       });
 
       if (response.data.success && response.data.data) {
@@ -31,8 +40,26 @@ export default function InventoryScreen({ navigation, route }: InventoryScreenPr
         throw new Error('Risposta del server non valida');
       }
     } catch (error: any) {
-      Alert.alert('❌ Errore', `Impossibile caricare l'inventario: ${error.message}`);
+      const currentIP = serverConfig.getIPAddress();
+      
       console.log('❌ Errore caricamento inventario:', error.message);
+      console.log('🔍 Dettaglio errore:', {
+        code: error.code,
+        message: error.message,
+        config: error.config?.url
+      });
+      
+      let errorMessage = `Impossibile caricare l'inventario: ${error.message}`;
+      
+      if (error.code === 'ECONNREFUSED') {
+        errorMessage = `Server non raggiungibile (${currentIP}:3001)\n\nVerifica che:\n• Il server desktop sia acceso\n• L'app desktop sia in esecuzione\n• Siano sulla stessa rete WiFi`;
+      } else if (error.code === 'ENETUNREACH') {
+        errorMessage = `Rete non raggiungibile\n\nVerifica la connessione WiFi`;
+      } else if (error.code === 'ETIMEDOUT') {
+        errorMessage = `Timeout della connessione\n\nIl server è lento o l'IP è errato`;
+      }
+      
+      Alert.alert('❌ Errore Connessione', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -60,6 +87,7 @@ export default function InventoryScreen({ navigation, route }: InventoryScreenPr
     loadInventory();
   }, []);
 
+  // ... RESTANTE DEL CODICE RIMANE UGUALE ...
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -156,6 +184,7 @@ export default function InventoryScreen({ navigation, route }: InventoryScreenPr
   );
 }
 
+// ... GLI STILI RIMANGONO UGUALI ...
 const styles = StyleSheet.create({
   container: {
     flex: 1,

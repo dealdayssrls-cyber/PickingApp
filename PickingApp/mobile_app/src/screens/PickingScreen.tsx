@@ -109,103 +109,108 @@ export default function PickingScreen({ route, navigation }: PickingScreenProps)
 
     // FUNZIONE PER COMPLETARE L'ORDINE E SINCRONIZZARE
     const completaOrdine = () => {
-      // Verifica che ci siano prodotti prelevati
-      if (ordineCorrente.quantitaTotalePrelevata === 0) {
-        Alert.alert('⚠️ Attenzione', 'Non hai prelevato nessun prodotto per questo ordine.');
-        return;
-      }
-
-      Alert.alert(
-        '✅ Completa Ordine',
-        `Sei sicuro di voler completare l'ordine "${ordineCorrente.nome}"?\n\n` +
-        `📦 Prodotti prelevati: ${ordineCorrente.quantitaTotalePrelevata}\n\n` +
-        `⚠️ ATTENZIONE:\n` +
-        `• L'ordine verrà sincronizzato con il server\n` +
-        `• Non sarà più possibile modificare l'ordine\n` +
-        `• Tutti i progressi verranno bloccati\n\n` +
-        `Confermi di voler procedere?`,
-        [
-          {
-            text: '❌ Annulla',
-            style: 'cancel',
-            onPress: () => console.log('Completamento ordine annullato')
-          },
-          {
-            text: '✅ Sì, Completa e Sincronizza',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                // Mostra indicatore di caricamento
-                Alert.alert('🔄 Sincronizzazione', 'Invio ordine completato al server...');
-
-                // 1. Aggiorna stato ordine a "completato"
-                const ordineCompletato = {
-                  ...ordineCorrente,
-                  stato: 'completato' as const,
-                  dataCompletamento: new Date().toISOString().split('T')[0]
-                };
-
-                // 2. Salva localmente
-                const ORDINI_STORAGE_KEY = 'ordini_in_lavorazione';
-                const ordiniSalvati = await AsyncStorage.getItem(ORDINI_STORAGE_KEY);
-                
-                if (ordiniSalvati) {
-                  const ordini = JSON.parse(ordiniSalvati);
-                  const ordiniAggiornati = ordini.map((ordine: Ordine) => 
-                    ordine.id === ordineCorrente.id ? ordineCompletato : ordine
-                  );
-                  await AsyncStorage.setItem(ORDINI_STORAGE_KEY, JSON.stringify(ordiniAggiornati));
-                }
-
-                // 3. SINCRONIZZA CON IL SERVER
-                console.log('🔄 Invio ordine al server...');
-                const result = await syncManager.syncOrderCompletion(ordineCompletato);
-                
-                if (result.success) {
-                  Alert.alert(
-                    '✅ Ordine Completato!',
-                    `Ordine "${ordineCorrente.nome}" sincronizzato con successo!\n\n` +
-                    `Prodotti prelevati: ${ordineCorrente.quantitaTotalePrelevata}\n\n` +
-                    `Torna alla lista ordini.`,
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => navigation.navigate('Orders', { operatore })
-                      }
-                    ]
-                  );
-                } else {
-                  Alert.alert(
-                    '⚠️ Ordine Salvato in Locale',
-                    `Ordine completato ma sincronizzazione fallita: ${result.message}\n\n` +
-                    `L'ordine verrà sincronizzato automaticamente appena possibile.`,
-                    [
-                      {
-                        text: 'OK',
-                        onPress: () => navigation.navigate('Orders', { operatore })
-                      }
-                    ]
-                  );
-                }
-
-              } catch (error: any) {
-                console.error('❌ Errore completamento ordine:', error);
-                Alert.alert(
-                  '❌ Errore', 
-                  `Impossibile completare l'ordine: ${error.message}\n\nL'ordine rimane in lavorazione.`,
-                  [
-                    {
-                      text: 'OK',
-                      onPress: () => console.log('Errore gestito')
-                    }
-                  ]
-                );
-              }
-            }
+          // Verifica che ci siano prodotti prelevati
+          if (ordineCorrente.quantitaTotalePrelevata === 0) {
+              Alert.alert('⚠️ Attenzione', 'Non hai prelevato nessun prodotto per questo ordine.');
+              return;
           }
-        ]
-      );
-    };
+
+          Alert.alert(
+              '✅ Completa Ordine',
+              `Sei sicuro di voler completare l'ordine "${ordineCorrente.nome}"?\n\n` +
+              `📦 Prodotti prelevati: ${ordineCorrente.quantitaTotalePrelevata}\n\n` +
+              `⚠️ ATTENZIONE:\n` +
+              `• L'ordine verrà sincronizzato con il server\n` +
+              `• Il file ordine verrà spostato nella cartella "ordini_completati"\n` +
+              `• Non sarà più possibile modificare l'ordine\n\n` +
+              `Confermi di voler procedere?`,
+              [
+                  {
+                      text: '❌ Annulla',
+                      style: 'cancel',
+                      onPress: () => console.log('Completamento ordine annullato')
+                  },
+                  {
+                      text: '✅ Sì, Completa e Sincronizza',
+                      style: 'destructive',
+                      onPress: async () => {
+                          try {
+                              // Mostra indicatore di caricamento
+                              Alert.alert('🔄 Sincronizzazione', 'Invio ordine completato al server...');
+
+                              // 1. Aggiorna stato ordine a "completato"
+                              const ordineCompletato = {
+                                  ...ordineCorrente,
+                                  stato: 'completato' as const,
+                                  dataCompletamento: new Date().toISOString().split('T')[0]
+                              };
+
+                              // 2. Salva localmente
+                              const ORDINI_STORAGE_KEY = 'ordini_in_lavorazione';
+                              const ordiniSalvati = await AsyncStorage.getItem(ORDINI_STORAGE_KEY);
+                              
+                              if (ordiniSalvati) {
+                                  const ordini = JSON.parse(ordiniSalvati);
+                                  const ordiniAggiornati = ordini.map((ordine: Ordine) => 
+                                      ordine.id === ordineCorrente.id ? ordineCompletato : ordine
+                                  );
+                                  await AsyncStorage.setItem(ORDINI_STORAGE_KEY, JSON.stringify(ordiniAggiornati));
+                              }
+
+                              // 3. SINCRONIZZA CON IL SERVER
+                              console.log('🔄 Invio ordine al server...');
+                              const result = await syncManager.syncOrderCompletion(ordineCompletato);
+                              
+                              if (result.success) {
+                                  let message = `Ordine "${ordineCorrente.nome}" sincronizzato con successo!\n\n` +
+                                              `Prodotti prelevati: ${ordineCorrente.quantitaTotalePrelevata}`;
+                                  
+                                  if (result.ordine_spostato) {
+                                      message += `\n\n📁 File ordine spostato in "ordini_completati"`;
+                                  }
+                                  
+                                  Alert.alert(
+                                      '✅ Ordine Completato!',
+                                      message,
+                                      [
+                                          {
+                                              text: 'OK',
+                                              onPress: () => navigation.navigate('Orders', { operatore })
+                                          }
+                                      ]
+                                  );
+                              } else {
+                                  Alert.alert(
+                                      '⚠️ Ordine Salvato in Locale',
+                                      `Ordine completato ma sincronizzazione fallita: ${result.message}\n\n` +
+                                      `L'ordine verrà sincronizzato automaticamente appena possibile.`,
+                                      [
+                                          {
+                                              text: 'OK',
+                                              onPress: () => navigation.navigate('Orders', { operatore })
+                                          }
+                                      ]
+                                  );
+                              }
+
+                          } catch (error: any) {
+                              console.error('❌ Errore completamento ordine:', error);
+                              Alert.alert(
+                                  '❌ Errore', 
+                                  `Impossibile completare l'ordine: ${error.message}\n\nL'ordine rimane in lavorazione.`,
+                                  [
+                                      {
+                                          text: 'OK',
+                                          onPress: () => console.log('Errore gestito')
+                                      }
+                                  ]
+                              );
+                          }
+                      }
+                  }
+              ]
+          );
+      };
 
   // FUNZIONE PER DETERMINARE IL COLORE DEL PRODOTTO
   const getProdottoColor = (prodotto: Prodotto) => {
@@ -396,83 +401,98 @@ export default function PickingScreen({ route, navigation }: PickingScreenProps)
   };
 
     // FUNZIONE PER CERCARE PRODOTTO NELL'INVENTARIO
-  const cercaProdotto = async (codice: string): Promise<Prodotto | null> => {
-    try {
-      console.log(`🔍 Cercando prodotto con codice: ${codice}`);
-      
-      const response = await axios.get(`http://${ipAddress}:3001/api/sync/inventory`, {
-        timeout: 5000
-      });
+    const cercaProdotto = async (codice: string): Promise<Prodotto | null> => {
+        try {
+            console.log(`🔍 Cercando prodotto con codice: ${codice}`);
+            
+            const response = await axios.get(`http://${ipAddress}:3001/api/sync/inventory`, {
+                timeout: 5000
+            });
 
-      if (!response.data.success) {
-        Alert.alert('❌ Errore', 'Impossibile accedere all\'inventario');
-        return null;
-      }
+            if (!response.data.success) {
+                Alert.alert('❌ Errore', 'Impossibile accedere all\'inventario');
+                return null;
+            }
 
-      const inventario = response.data.data;
-      const codiceClean = codice.toString().trim().toUpperCase();
+            const inventario = response.data.data;
+            const codiceClean = codice.toString().trim().toUpperCase();
 
-      const prodottoTrovato = inventario.find((prodotto: any) => {
-        const codProdotto = (prodotto['Cod.'] || prodotto.Cod || '').toString().trim().toUpperCase();
-        if (codProdotto === codiceClean) {
-          return true;
+            const prodottoTrovato = inventario.find((prodotto: any) => {
+                const codProdotto = (prodotto['Cod.'] || prodotto.Cod || '').toString().trim().toUpperCase();
+                if (codProdotto === codiceClean) {
+                    return true;
+                }
+
+                let eanArray: string[] = [];
+                if (Array.isArray(prodotto['Cod. a barre'])) {
+                    eanArray = prodotto['Cod. a barre'];
+                } else if (prodotto['Cod. a barre']) {
+                    eanArray = [prodotto['Cod. a barre']];
+                }
+
+                return eanArray.some(ean => 
+                    ean && ean.toString().trim().toUpperCase() === codiceClean
+                );
+            });
+
+            if (prodottoTrovato) {
+                console.log('✅ Prodotto trovato:', prodottoTrovato);
+                
+                // CONTROLLA SE IL PRODOTTO È NELL'ORDINE
+                const prodottoInOrdine = ordineCorrente.prodotti.find(p => 
+                    p.codice === (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim()
+                );
+                
+                if (prodottoInOrdine && (prodottoInOrdine.quantitaOrdinata || 0) > 0) {
+                    // Prodotto trovato E presente nell'ordine
+                    return {
+                        codice: (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim(),
+                        descrizione: prodottoTrovato.Descrizione || prodottoTrovato['Desc.'] || 'Descrizione non disponibile',
+                        prezzo: prodottoTrovato['Listino 1 (ivato)'] ? `${prodottoTrovato['Listino 1 (ivato)']}€` : 'Prezzo non disponibile',
+                        quantita: prodottoTrovato['Q.tà disponibile'] || 0,
+                        codiceOriginale: prodottoTrovato['Cod.'] || prodottoTrovato.Cod,
+                        quantitaOrdinata: prodottoInOrdine.quantitaOrdinata || 0,
+                        quantitaPrelevata: prodottoInOrdine.quantitaPrelevata || 0
+                    };
+                } else {
+                    // Prodotto trovato ma NON presente nell'ordine
+                    console.log('⚠️ Prodotto NON presente nell\'ordine');
+                    return {
+                        codice: (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim(),
+                        descrizione: prodottoTrovato.Descrizione || prodottoTrovato['Desc.'] || 'Descrizione non disponibile',
+                        prezzo: prodottoTrovato['Listino 1 (ivato)'] ? `${prodottoTrovato['Listino 1 (ivato)']}€` : 'Prezzo non disponibile',
+                        quantita: prodottoTrovato['Q.tà disponibile'] || 0,
+                        codiceOriginale: prodottoTrovato['Cod.'] || prodottoTrovato.Cod,
+                        quantitaOrdinata: 0, // Non presente nell'ordine
+                        quantitaPrelevata: 0
+                    };
+                }
+            } else {
+                console.log('❌ Prodotto non trovato nell\'inventario');
+                return null;
+            }
+
+        } catch (error: any) {
+            console.log('❌ Errore nella ricerca:', error.message);
+            
+            // MOSTRA UN MESSAGGIO PIÙ CHIARO
+            if (error.code === 'ECONNREFUSED' || error.message.includes('Network Error')) {
+                Alert.alert(
+                    '❌ Server Non Raggiungibile',
+                    `Impossibile connettersi al server desktop.\n\n` +
+                    `Verifica che:\n` +
+                    `• Il computer desktop sia acceso\n` +
+                    `• Il server sia in esecuzione\n` +
+                    `• Siano sulla stessa rete WiFi\n` +
+                    `• Il firewall permetta la connessione\n\n` +
+                    `IP configurato: ${ipAddress}:3001`
+                );
+            } else {
+                Alert.alert('❌ Errore', `Errore durante la ricerca: ${error.message}`);
+            }
+            return null;
         }
-
-        let eanArray: string[] = [];
-        if (Array.isArray(prodotto['Cod. a barre'])) {
-          eanArray = prodotto['Cod. a barre'];
-        } else if (prodotto['Cod. a barre']) {
-          eanArray = [prodotto['Cod. a barre']];
-        }
-
-        return eanArray.some(ean => 
-          ean && ean.toString().trim().toUpperCase() === codiceClean
-        );
-      });
-
-      if (prodottoTrovato) {
-        console.log('✅ Prodotto trovato:', prodottoTrovato);
-        
-        // CONTROLLA SE IL PRODOTTO È NELL'ORDINE
-        const prodottoInOrdine = ordineCorrente.prodotti.find(p => 
-          p.codice === (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim()
-        );
-        
-        if (prodottoInOrdine) {
-          // Prodotto trovato E presente nell'ordine
-          return {
-            codice: (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim(),
-            descrizione: prodottoTrovato.Descrizione || prodottoTrovato['Desc.'] || 'Descrizione non disponibile',
-            prezzo: prodottoTrovato['Listino 1 (ivato)'] ? `${prodottoTrovato['Listino 1 (ivato)']}€` : 'Prezzo non disponibile',
-            quantita: prodottoTrovato['Q.tà disponibile'] || 0,
-            codiceOriginale: prodottoTrovato['Cod.'] || prodottoTrovato.Cod,
-            quantitaOrdinata: prodottoInOrdine.quantitaOrdinata || 0,
-            quantitaPrelevata: prodottoInOrdine.quantitaPrelevata || 0
-          };
-        } else {
-          // Prodotto trovato ma NON presente nell'ordine
-          console.log('⚠️ Prodotto NON presente nell\'ordine');
-          return {
-            codice: (prodottoTrovato['Cod.'] || prodottoTrovato.Cod || codiceClean).toString().trim(),
-            descrizione: prodottoTrovato.Descrizione || prodottoTrovato['Desc.'] || 'Descrizione non disponibile',
-            prezzo: prodottoTrovato['Listino 1 (ivato)'] ? `${prodottoTrovato['Listino 1 (ivato)']}€` : 'Prezzo non disponibile',
-            quantita: prodottoTrovato['Q.tà disponibile'] || 0,
-            codiceOriginale: prodottoTrovato['Cod.'] || prodottoTrovato.Cod,
-            quantitaOrdinata: 0, // Non presente nell'ordine
-            quantitaPrelevata: 0
-          };
-        }
-      } else {
-        console.log('❌ Prodotto non trovato nell\'inventario');
-        return null;
-      }
-
-    } catch (error: any) {
-      console.log('❌ Errore nella ricerca:', error.message);
-      Alert.alert('❌ Errore', `Errore durante la ricerca: ${error.message}`);
-      return null;
-    }
-  };
+    };
 
   // FUNZIONE PER AGGIUNGERE PRODOTTO PRELEVATO ALL'ORDINE
   const aggiungiProdottoPrelevato = (prodotto: Prodotto, quantita: number = 1) => {
