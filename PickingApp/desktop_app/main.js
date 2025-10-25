@@ -68,6 +68,36 @@ function createWindow() {
   });
 }
 
+// FUNZIONE PER SPOSTARE ORDINE COMPLETATO
+function spostaOrdineCompletato(fileName) {
+    try {
+        const ordersPath = path.join(__dirname, '..', 'shared_documents', 'ordini');
+        const completedPath = path.join(__dirname, '..', 'shared_documents', 'ordini_completati');
+        
+        // Crea cartella ordini_completati se non esiste
+        ensureDirectoryExists(completedPath);
+        
+        const sourcePath = path.join(ordersPath, fileName);
+        const destPath = path.join(completedPath, fileName);
+        
+        // Verifica che il file esista
+        if (!fs.existsSync(sourcePath)) {
+            console.log('⚠️ File ordine non trovato:', fileName);
+            return { success: false, error: 'File non trovato' };
+        }
+        
+        // Sposta il file
+        fs.renameSync(sourcePath, destPath);
+        console.log('✅ Ordine spostato in ordini_completati:', fileName);
+        
+        return { success: true, message: 'Ordine spostato con successo' };
+        
+    } catch (error) {
+        console.error('❌ Errore spostamento ordine:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // SERVER API PER MOBILE
 function startMobileApiServer() {
     try {
@@ -324,7 +354,7 @@ apiServer.get('/api/sync/inventory', (req, res) => {
 
         // === NUOVE API AGGIUNTE ===
 
-        // API 8: Completa ordine (aggiorna quantità inventario) - VERSIONE CORRETTA
+        // API 8: Completa ordine (aggiorna quantità inventario)
         apiServer.post('/api/sync/complete-order', async (req, res) => {
             try {
                 console.log('📱 Mobile: Ricevuto ordine completato');
@@ -375,16 +405,26 @@ apiServer.get('/api/sync/inventory', (req, res) => {
                 // Salva inventario aggiornato
                 fs.writeFileSync(databasePath, JSON.stringify(inventario, null, 2));
                 
-                // ⭐⭐⭐ QUESTA È LA RIGA IMPORTANTE DA CAMBIARE ⭐⭐⭐
+                // Crea DDT
                 console.log('📄🎯 CHIAMATA a creaDDTAutomaticoPerMobile...');
                 const ddtResult = await creaDDTAutomaticoPerMobile(ordine);
+                
+                // ⭐⭐⭐ NUOVO: SPOSTA ORDINE COMPLETATO ⭐⭐⭐
+                let spostamentoResult = { success: false, message: 'Nessun file da spostare' };
+                
+                if (ordine.fileName) {
+                    console.log(`🔄 Spostamento ordine completato: ${ordine.fileName}`);
+                    spostamentoResult = spostaOrdineCompletato(ordine.fileName);
+                }
                 
                 res.json({
                     success: true,
                     message: `Ordine processato: ${aggiornamenti} prodotti aggiornati, ${errori} errori`,
                     aggiornamenti: aggiornamenti,
                     errori: errori,
-                    ddt_creato: ddtResult.success
+                    ddt_creato: ddtResult.success,
+                    ordine_spostato: spostamentoResult.success,
+                    spostamento_message: spostamentoResult.message
                 });
                 
             } catch (error) {
@@ -530,6 +570,19 @@ apiServer.get('/api/sync/inventory', (req, res) => {
         apiServer.listen(PORT, '0.0.0.0', () => {
             console.log(`🔄 Server API mobile in ascolto su http://localhost:${PORT}`);
             console.log(`📱 Pronto per connessioni da dispositivi mobile sulla stessa rete`);
+            console.log(`🌐 Indirizzi di rete disponibili:`);
+            
+            // Mostra gli IP di rete
+            const os = require('os');
+            const networkInterfaces = os.networkInterfaces();
+            
+            Object.keys(networkInterfaces).forEach(interfaceName => {
+                networkInterfaces[interfaceName].forEach(interface => {
+                    if (interface.family === 'IPv4' && !interface.internal) {
+                        console.log(`   → http://${interface.address}:${PORT}`);
+                    }
+                });
+            });
         });
 
         return true;
@@ -821,6 +874,44 @@ function registerIpcHandlers() {
   ipcHandlersRegistered = true;
   console.log('✅ Handler IPC registrati con successo');
 }
+
+// AGGIUNGI QUESTA API al server Express (dopo le altre API)
+apiServer.get('/api/debug/inventory-test', (req, res) => {
+    try {
+        console.log('🔍 DEBUG: Test endpoint inventario chiamato');
+        const databasePath = getDatabasePath();
+        
+        if (!fs.existsSync(databasePath)) {
+            console.log('❌ DEBUG: Database inventario non trovato');
+            return res.json({ 
+                success: false, 
+                error: 'Database non trovato',
+                path: databasePath 
+            });
+        }
+        
+        const data = fs.readFileSync(databasePath, 'utf8');
+        const inventario = JSON.parse(data);
+        
+        console.log(`✅ DEBUG: Inventario letto: ${inventario.length} prodotti`);
+        
+        res.json({
+            success: true,
+            message: 'Inventario accessibile',
+            count: inventario.length,
+            sample: inventario.slice(0, 3), // Prime 3 righe per debug
+            path: databasePath
+        });
+        
+    } catch (error) {
+        console.error('❌ DEBUG: Errore test inventario:', error);
+        res.json({ 
+            success: false, 
+            error: error.message,
+            stack: error.stack 
+        });
+    }
+});
 
 // FUNZIONE PER CREARE CARTELLE IN MODO SICURO
 function ensureDirectoryExists(dirPath) {
